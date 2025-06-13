@@ -1,4 +1,4 @@
-# 💬 Diàleg Interactiu amb IA (OpenRouter)
+# 💬 XERRAIRE Diàleg Interactiu amb IA (OpenRouter)
 
 ![Llicència](https://img.shields.io/badge/Llic%C3%A8ncia-MIT-green.svg) ![Estat](https://img.shields.io/badge/Estat-Funcional%20(Beta)-blue.svg) ![Versió](https://img.shields.io/badge/Versi%C3%B3-1.0-yellow.svg)
 
