@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diálogo Interactivo con OpenRouter API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            gap: 20px;
+        }
+        .app-container {
+            display: flex;
+            gap: 20px;
+            width: 95%;
+            max-width: 1200px;
+        }
+        .config-column {
+            width: 300px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            align-self: flex-start;
+        }
+        .chat-column {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            width: 100%;
+        }
+        h1, h2 {
+            text-align: center;
+            color: #333;
+        }
+        h2 { margin-top: 0; font-size: 1.2em; }
+        #chat-display {
+            height: 450px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 10px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 18px;
+            max-width: 85%;
+            word-wrap: break-word;
+            line-height: 1.4;
+        }
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        .ai-message {
+            background-color: #e9ecef;
+            color: #333;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+        .message .sender {
+            font-weight: bold;
+            font-size: 0.9em;
+            display: block;
+            margin-bottom: 3px;
+        }
+        .message .timestamp {
+            font-size: 0.75em;
+            color: #555;
+            display: block;
+            margin-top: 4px;
+            text-align: right;
+        }
+        .user-message .timestamp { color: #f0f0f0; }
+        .ai-message.thinking::after {
+            content: '...';
+            display: inline-block;
+            animation: thinking 1s infinite;
+        }
+        @keyframes thinking {
+            0% { content: '.'; }
+            33% { content: '..'; }
+            66% { content: '...'; }
+        }
+        textarea, input[type="text"], input[type="password"], select {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+        textarea#user-input { min-height: 60px; }
+        textarea#system-prompt { min-height: 80px; resize: vertical; }
+        .chat-controls { display: flex; justify-content: space-between; }
+        button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        button#clear-chat { background-color: #dc3545; }
+        button#clear-chat:hover { background-color: #c82333; }
+        .config-item { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 0.9em; color: #555; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="config-column">
+            <h2>Configuración de IA (OpenRouter)</h2>
+            <div class="config-item">
+                <label for="api-key">API Key (OpenRouter):</label>
+                <input type="password" id="api-key" placeholder="sk-or-...">
+                <small>Tu clave no se guarda. <a href="https://openrouter.ai/keys" target="_blank">Obtener clave</a></small>
+            </div>
+            <div class="config-item">
+                <label for="model-select">Modelo (Gratuito):</label>
+                <select id="model-select">
+                    <!-- Opciones se cargarán con JS -->
+                </select>
+            </div>
+            <div class="config-item">
+                <label for="system-prompt">System Prompt (Instrucciones para la IA):</label>
+                <textarea id="system-prompt" placeholder="Ej: Eres un asistente útil y creativo.">Eres un asistente de diálogo amigable y conciso.</textarea>
+            </div>
+             <div class="config-item">
+                <label for="max-history">Mensajes de Historial a enviar (contexto):</label>
+                <input type="number" id="max-history" value="6" min="0" max="20">
+            </div>
+        </div>
+
+        <div class="chat-column">
+            <div class="container">
+                <h1>Diálogo Interactivo</h1>
+                <div id="chat-display"></div>
+                <textarea id="user-input" placeholder="Escribe tu pregunta o comentario... (Ctrl+Enter para nueva línea)"></textarea>
+                <div class="chat-controls">
+                    <button id="send-button">Enviar</button>
+                    <div>
+                        <button id="download-button">Descargar (.md)</button>
+                        <button id="clear-chat">Limpiar Chat</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatDisplay = document.getElementById('chat-display');
+            const userInput = document.getElementById('user-input');
+            const sendButton = document.getElementById('send-button');
+            const downloadButton = document.getElementById('download-button');
+            const clearChatButton = document.getElementById('clear-chat');
+            const apiKeyInput = document.getElementById('api-key');
+            const modelSelect = document.getElementById('model-select');
+            const systemPromptTextarea = document.getElementById('system-prompt');
+            const maxHistoryInput = document.getElementById('max-history');
+
+            const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+            // Lista de algunos modelos gratuitos populares de OpenRouter (puedes actualizarla)
+            // Es buena idea verificar en openrouter.ai/docs#models cuáles están actualmente en el tier gratuito
+            const FREE_MODELS = [
+                { id: "mistralai/mistral-7b-instruct:free", name: "Mistral 7B Instruct (Free)" },
+                { id: "nousresearch/nous-hermes-2-mistral-7b-dpo:free", name: "Nous Hermes 2 Mistral DPO (Free)" },
+                { id: "google/gemma-7b-it:free", name: "Google Gemma 7B IT (Free)" },
+                { id: "openchat/openchat-7b:free", name: "OpenChat 7B (Free)" },
+                { id: "huggingfaceh4/zephyr-7b-beta:free", name: "Zephyr 7B Beta (Free)" },
+                { id: "gryphe/gryphe-mistral-7b-instruct-v2:free", name: "Gryphe Mistral 7B Instruct v2 (Free)"},
+                // { id: "openai/gpt-3.5-turbo", name: "OpenAI GPT-3.5 Turbo (Requiere Créditos)"} // Ejemplo si quieres añadir de pago
+            ];
+
+            FREE_MODELS.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = model.name;
+                modelSelect.appendChild(option);
+            });
+            if (FREE_MODELS.length > 0) modelSelect.value = FREE_MODELS[0].id;
+
+
+            const STORAGE_KEY = 'interactiveDialogHistoryOpenRouter';
+            let messages = []; // { text: string, sender: 'user' | 'ai' | 'error', timestamp: string, modelUsed?: string }
+
+            function loadMessages() {
+                const storedMessages = localStorage.getItem(STORAGE_KEY);
+                if (storedMessages) {
+                    messages = JSON.parse(storedMessages);
+                }
+                renderMessages();
+            }
+
+            function saveMessages() {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+            }
+
+            function renderMessages() {
+                chatDisplay.innerHTML = '';
+                messages.forEach(msg => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.classList.add('message');
+                    
+                    const senderSpan = document.createElement('span');
+                    senderSpan.classList.add('sender');
+                    
+                    if (msg.sender === 'user') {
+                        messageDiv.classList.add('user-message');
+                        senderSpan.textContent = "Tú";
+                    } else if (msg.sender === 'ai') {
+                        messageDiv.classList.add('ai-message');
+                        senderSpan.textContent = `IA (${msg.modelUsed || modelSelect.selectedOptions[0].text.split('(')[0].trim()})`;
+                    } else { // error
+                        messageDiv.classList.add('error-message');
+                        senderSpan.textContent = "Error del Sistema";
+                    }
+                    messageDiv.appendChild(senderSpan);
+
+                    const textNode = document.createElement('span');
+                    // Para renderizar saltos de línea correctamente en el HTML desde el texto plano
+                    textNode.innerHTML = msg.text.replace(/\n/g, '<br>');
+                    messageDiv.appendChild(textNode);
+
+                    const timestampNode = document.createElement('span');
+                    timestampNode.classList.add('timestamp');
+                    timestampNode.textContent = new Date(msg.timestamp).toLocaleString('es-ES');
+                    messageDiv.appendChild(timestampNode);
+                    
+                    if (msg.sender === 'user') {
+                        messageDiv.style.cursor = 'pointer';
+                        messageDiv.title = 'Clic para retomar este mensaje';
+                        messageDiv.addEventListener('click', () => {
+                            userInput.value = msg.text;
+                            userInput.focus();
+                        });
+                    }
+                    chatDisplay.appendChild(messageDiv);
+                });
+                chatDisplay.scrollTop = chatDisplay.scrollHeight;
+            }
+
+            function addMessage(text, sender, modelUsed = null) {
+                if (text.trim() === '' && sender !== 'ai_thinking') return;
+
+                const newMessage = {
+                    text: text,
+                    sender: sender,
+                    timestamp: new Date().toISOString()
+                };
+                if (modelUsed) {
+                    newMessage.modelUsed = modelUsed;
+                }
+
+                messages.push(newMessage);
+                saveMessages();
+                renderMessages();
+                
+                if (sender === 'user') {
+                    userInput.value = '';
+                    userInput.focus();
+                    triggerAIResponse(text);
+                }
+            }
+            
+            async function triggerAIResponse(userText) {
+                const apiKey = apiKeyInput.value.trim();
+                const selectedModel = modelSelect.value;
+                const systemPrompt = systemPromptTextarea.value.trim();
+                const maxHistory = parseInt(maxHistoryInput.value) || 6;
+
+
+                if (!apiKey) {
+                    addMessage("Por favor, introduce tu API Key de OpenRouter en la configuración.", 'error');
+                    return;
+                }
+                if (!selectedModel) {
+                    addMessage("Por favor, selecciona un modelo en la configuración.", 'error');
+                    return;
+                }
+
+                sendButton.disabled = true;
+                const thinkingMsg = { text: "IA está pensando", sender: 'ai', timestamp: new Date().toISOString(), modelUsed: selectedModel.split(':')[0]};
+                messages.push(thinkingMsg);
+                const thinkingMsgIndex = messages.length - 1;
+                renderMessages(); // Muestra "pensando"
+                const thinkingDiv = chatDisplay.lastChild;
+                if(thinkingDiv) thinkingDiv.classList.add('thinking');
+
+
+                // Construir el historial de mensajes para la API
+                const apiMessages = [];
+                if (systemPrompt) {
+                    apiMessages.push({ role: "system", content: systemPrompt });
+                }
+
+                // Añadir los últimos N mensajes del historial (user y assistant)
+                const relevantHistory = messages.slice(0, -1) // Excluye el mensaje "pensando"
+                                          .filter(m => m.sender === 'user' || m.sender === 'ai')
+                                          .slice(-maxHistory); 
+                
+                relevantHistory.forEach(msg => {
+                    apiMessages.push({
+                        role: msg.sender === 'user' ? 'user' : 'assistant',
+                        content: msg.text
+                    });
+                });
+                // Añadir el mensaje actual del usuario al final si no estaba ya en el slice (esto no debería pasar con slice(0,-1))
+                // Esta línea no es necesaria con la lógica actual de relevantHistory, pero es una buena comprobación
+                // if (!apiMessages.find(m => m.role === 'user' && m.content === userText)) {
+                //      apiMessages.push({ role: "user", content: userText });
+                // }
+
+
+                try {
+                    const response = await fetch(OPENROUTER_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json',
+                            // Opcional: Referer y X-Title para que OpenRouter sepa de dónde viene la llamada
+                            // 'HTTP-Referer': 'http://localhost/dialogo_usb.html', // Cambia si lo alojas
+                            // 'X-Title': 'Dialogo USB App'
+                        },
+                        body: JSON.stringify({
+                            model: selectedModel,
+                            messages: apiMessages
+                        })
+                    });
+
+                    messages.splice(thinkingMsgIndex, 1); // Elimina el mensaje "pensando"
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ error: { message: response.statusText } }));
+                        console.error("Error API:", errorData);
+                        addMessage(`Error de API (${response.status}): ${errorData.error?.message || 'Error desconocido'}`, 'error');
+                        renderMessages();
+                        return;
+                    }
+
+                    const data = await response.json();
+                    const aiText = data.choices[0]?.message?.content?.trim();
+
+                    if (aiText) {
+                        addMessage(aiText, 'ai', selectedModel.split(':')[0]); // Usar el nombre base del modelo
+                    } else {
+                        addMessage("La IA no devolvió una respuesta válida.", 'error');
+                    }
+
+                } catch (error) {
+                    messages.splice(thinkingMsgIndex, 1); // Elimina el mensaje "pensando" en caso de error de red
+                    console.error("Error en fetch:", error);
+                    addMessage(`Error de red o conexión: ${error.message}`, 'error');
+                    renderMessages();
+                } finally {
+                    sendButton.disabled = false;
+                    userInput.focus();
+                }
+            }
+
+
+            function downloadChatAsMarkdown() {
+                if (messages.length === 0) {
+                    alert("No hay mensajes para descargar.");
+                    return;
+                }
+
+                let markdownContent = `# Historial del Diálogo con IA (OpenRouter)\n\n`;
+                if(systemPromptTextarea.value.trim()) {
+                    markdownContent += `**System Prompt Configurado:**\n\`\`\`\n${systemPromptTextarea.value.trim()}\n\`\`\`\n\n`;
+                }
+                messages.forEach(msg => {
+                    let senderName = "Sistema";
+                    if (msg.sender === 'user') senderName = 'Usuario';
+                    else if (msg.sender === 'ai') senderName = `IA (${msg.modelUsed || 'Desconocido'})`;
+                    
+                    markdownContent += `**${senderName} (${new Date(msg.timestamp).toLocaleString('es-ES')}):**\n`;
+                    markdownContent += `${msg.text.replace(/<br>/g, '\n')}\n\n`; // Reemplaza <br> por saltos de línea en MD
+                });
+
+                const blob = new Blob([markdownContent], { type: 'text/markdown;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `dialogo_openrouter_${new Date().toISOString().slice(0,10)}.md`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            function clearChat() {
+                if (confirm("¿Estás seguro de que quieres borrar todo el historial del chat? Esta acción no se puede deshacer.")) {
+                    messages = [];
+                    localStorage.removeItem(STORAGE_KEY);
+                    renderMessages();
+                }
+            }
+
+            // Event Listeners
+            sendButton.addEventListener('click', () => addMessage(userInput.value, 'user'));
+            userInput.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter' && !event.ctrlKey && !event.shiftKey) { // Enviar con Enter
+                    event.preventDefault();
+                    addMessage(userInput.value, 'user');
+                }
+                // Ctrl+Enter o Shift+Enter para nueva línea ya es comportamiento por defecto de textarea
+            });
+            downloadButton.addEventListener('click', downloadChatAsMarkdown);
+            clearChatButton.addEventListener('click', clearChat);
+
+            loadMessages();
+            userInput.focus();
+        });
+    </script>
+</body>
+</html>
